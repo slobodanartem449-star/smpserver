@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FrozenSMP — Ultra-Realistic 24/7 Ice Minecraft Server</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ice: {
+                            50: '#f0fdf4',
+                            100: '#e0f2fe',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0369a1',
+                            950: '#082f49',
+                        },
+                        darkslate: {
+                            950: '#03050c',
+                            900: '#060913',
+                            800: '#0f172a',
+                            700: '#1e293b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #03050c;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #03050c;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #0284c7;
+            border-radius: 4px;
+        }
+        .glass {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(56, 189, 248, 0.18);
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(56, 189, 248, 0.12);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-card:hover {
+            border-color: rgba(56, 189, 248, 0.5);
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px -15px rgba(56, 189, 248, 0.3);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 25px rgba(56, 189, 248, 0.4); }
+            50% { box-shadow: 0 0 50px rgba(56, 189, 248, 0.8); }
+        }
+        .glow-effect {
+            animation: pulseGlow 3s infinite;
+        }
+        .snowflake {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.8;
+            animation: fall linear infinite;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-10vh) translateX(0); opacity: 0.9; }
+            100% { transform: translateY(105vh) translateX(25px); opacity: 0.1; }
+        }
+        .modal-backdrop {
+            background: rgba(3, 5, 12, 0.85);
+            backdrop-filter: blur(16px);
+        }
+    </style>
+</head>
+<body class="selection:bg-ice-500 selection:text-white relative">
+
+    <div id="snow-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <div id="toast" class="fixed bottom-6 right-6 z-[100] transform translate-y-32 opacity-0 transition-all duration-300 bg-gradient-to-r from-ice-600 to-cyan-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-ice-400">
+        <i class="fa-solid fa-snowflake text-2xl animate-spin" style="animation-duration: 8s;"></i>
+        <div>
+            <div id="toast-title" class="font-bold text-sm">Notification</div>
+            <div id="toast-message" class="text-xs text-ice-100">Successfully executed!</div>
+        </div>
+    </div>
+
+    <div id="auth-modal" class="fixed inset-0 z-[90] modal-backdrop flex items-center justify-center p-4 hidden">
+        <div class="glass max-w-md w-full p-8 rounded-3xl border border-ice-400/40 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            <button onclick="closeAuthModal()" class="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <div class="text-center mb-8">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-ice-400 to-ice-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-ice-500/40">
+                    <i class="fa-solid fa-user-shield text-white text-2xl"></i>
+                </div>
+                <h3 id="auth-title" class="text-2xl font-black text-white mb-1">Server Login</h3>
+                <p id="auth-subtitle" class="text-xs text-gray-400">Enter your Minecraft account credentials</p>
+            </div>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1.5">Minecraft Username:</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+                        <input type="text" id="auth-username" required placeholder="e.g. FrostMaster" class="w-full bg-darkslate-900 border border-gray-700 rounded-xl pl-11 pr-4 py-3 text-white text-sm focus:outline-none focus:border-ice-400 transition-colors">
+                    </div>
+                </div>
+
+                <div id="email-field-container" class="hidden">
+                    <label class="block text-xs font-semibold text-gray-300 mb-1.5">Email Address:</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+                        <input type="email" id="auth-email" placeholder="name@example.com" class="w-full bg-darkslate-900 border border-gray-700 rounded-xl pl-11 pr-4 py-3 text-white text-sm focus:outline-none focus:border-ice-400 transition-colors">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1.5">Password:</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+                        <input type="password" id="auth-password" required placeholder="••••••••" class="w-full bg-darkslate-900 border border-gray-700 rounded-xl pl-11 pr-4 py-3 text-white text-sm focus:outline-none focus:border-ice-400 transition-colors">
+                    </div>
+                </div>
+
+                <button type="submit" id="auth-submit-btn" class="w-full bg-gradient-to-r from-ice-500 to-ice-600 hover:from-ice-400 hover:to-ice-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-ice-500/30 text-sm mt-2">
+                    Login to Game
+                </button>
+            </form>
+
+            <div class="mt-6 text-center text-xs text-gray-400">
+                <span id="auth-toggle-text">Don't have an account?</span>
+                <button type="button" onclick="toggleAuthMode()" id="auth-toggle-btn" class="text-ice-400 font-bold ml-1 hover:underline">Register</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="fixed top-0 left-0 right-0 z-40 glass border-b border-ice-950/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <a href="#" class="flex items-center gap-3 group">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-ice-400 to-ice-600 flex items-center justify-center shadow-lg shadow-ice-500/30 group-hover:scale-105 transition-transform">
+                    <i class="fa-solid fa-snowflake text-white text-xl animate-spin" style="animation-duration: 12s;"></i>
+                </div>
+                <div>
+                    <span class="text-2xl font-black tracking-wider bg-gradient-to-r from-ice-300 via-white to-ice-200 bg-clip-text text-transparent">FROZEN<span class="text-ice-400">SMP</span></span>
+                    <span class="block text-[10px] text-ice-400 tracking-widest uppercase font-semibold">100% Free • Zero Pay-to-Win</span>
+                </div>
+            </a>
+
+            <nav class="hidden lg:flex items-center gap-6 font-medium text-sm text-gray-300">
+                <a href="#about" class="hover:text-ice-400 transition-colors">Home</a>
+                <a href="#clans" class="hover:text-ice-400 transition-colors">Clans</a>
+                <a href="#rules" class="hover:text-ice-400 transition-colors">Rules</a>
+                <a href="#maintenance" class="hover:text-ice-400 transition-colors">Status</a>
+                <a href="#support" class="hover:text-ice-400 transition-colors">Support</a>
+                <a href="https://discord.gg/ypeaBFn8tw" target="_blank" class="hover:text-ice-400 transition-colors flex items-center gap-1.5"><i class="fa-brands fa-discord text-ice-400"></i> Discord</a>
+            </nav>
+
+            <div class="flex items-center gap-3">
+                <button onclick="copyIP()" class="hidden sm:flex items-center gap-2 bg-darkslate-800 hover:bg-darkslate-700 text-ice-300 px-4 py-2.5 rounded-xl border border-ice-500/30 text-sm font-semibold transition-all shadow-md hover:border-ice-400">
+                    <i class="fa-solid fa-server text-ice-400"></i>
+                    <span id="nav-ip">play.frozensmp.ru</span>
+                    <i class="fa-regular fa-copy ml-1 text-xs text-gray-400"></i>
+                </button>
+
+                <!-- Auth Widget -->
+                <div id="auth-nav-container">
+                    <button onclick="openAuthModal('login')" class="bg-gradient-to-r from-ice-500 to-ice-600 hover:from-ice-400 hover:to-ice-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-ice-500/25 transition-all hover:scale-105">
+                        <i class="fa-solid fa-right-to-bracket mr-1.5"></i> Login
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section id="about" class="relative min-h-screen flex items-center justify-center pt-28 pb-16 overflow-hidden">
+        <div class="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-ice-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+            <div class="flex flex-wrap items-center justify-center gap-3 mb-8">
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-ice-400/30 shadow-inner">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-sm font-medium text-gray-200">Online Players: <strong id="online-count" class="text-ice-300 font-mono">342</strong> / 1000 | Ping: <span class="text-emerald-400 font-mono">11ms</span></span>
+                </div>
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-amber-400/30 text-amber-300 text-sm font-semibold">
+                    <i class="fa-solid fa-shield-cat"></i> 100% Free & Fair Play
+                </div>
+            </div>
+
+            <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight mb-6 leading-tight">
+                Legendary Survival on <br>
+                <span class="bg-gradient-to-r from-ice-300 via-ice-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">FrozenSMP 2026</span>
+            </h1>
+
+            <p class="max-w-2xl mx-auto text-lg sm:text-xl text-gray-300 mb-10 font-normal leading-relaxed">
+                An absolutely free vanilla Minecraft server on the newest versions. Create clans, earn coins for activity, and build epic castles without donations!
+            </p>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto mb-16">
+                <button onclick="copyIP()" class="w-full sm:w-auto flex items-center justify-center gap-3 bg-gradient-to-r from-ice-500 to-ice-600 hover:from-ice-400 hover:to-ice-500 text-white font-bold px-8 py-4 rounded-2xl shadow-xl shadow-ice-500/30 glow-effect transition-all transform hover:-translate-y-0.5">
+                    <i class="fa-solid fa-copy text-lg"></i>
+                    <span>Copy Server IP</span>
+                </button>
+                <a href="https://discord.gg/ypeaBFn8tw" target="_blank" class="w-full sm:w-auto flex items-center justify-center gap-2 glass hover:bg-darkslate-800 text-ice-300 font-semibold px-8 py-4 rounded-2xl border border-ice-500/30 transition-all">
+                    <i class="fa-brands fa-discord text-ice-400 text-lg"></i>
+                    <span>Join Discord</span>
+                </a>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <div class="text-ice-400 text-sm font-semibold mb-1">Versions</div>
+                    <div class="text-lg font-bold text-white font-mono">1.21 – 26.3+</div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <div class="text-ice-400 text-sm font-semibold mb-1">Uptime</div>
+                    <div class="text-lg font-bold text-emerald-400 font-mono">99.99% (24/7)</div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <div class="text-ice-400 text-sm font-semibold mb-1">Donation Shop</div>
+                    <div class="text-lg font-bold text-rose-400 font-mono">NONE (0)</div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <div class="text-ice-400 text-sm font-semibold mb-1">Activity Coins</div>
+                    <div class="text-lg font-bold text-amber-300 font-mono">Free ⭐</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="clans" class="py-24 relative bg-darkslate-800/40 border-y border-ice-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <span class="text-ice-400 font-bold uppercase tracking-widest text-xs mb-3 block">Interactive Dashboard</span>
+                <h2 class="text-3xl sm:text-5xl font-black mb-4">Clans & Server Coins</h2>
+                <p class="text-gray-400 text-lg">Log in to manage your balance, create clans for <strong class="text-amber-300">800 coins</strong>, and collect activity rewards!</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <!-- Create Clan -->
+                <div class="glass p-8 rounded-3xl border border-ice-500/30 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-crown"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-white">Create Clan</h3>
+                                <p class="text-xs text-amber-300 font-medium">Cost: 800 coins</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4 mb-6">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-400 mb-1">Clan Name:</label>
+                                <input type="text" id="clan-name" placeholder="e.g. IceStorm" class="w-full bg-darkslate-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-ice-400">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-400 mb-1">Your IGN:</label>
+                                <input type="text" id="clan-owner" placeholder="Your Minecraft Nick" class="w-full bg-darkslate-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-ice-400">
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="createClan()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-amber-600/30 text-sm">
+                        Create Clan (800 Coins)
+                    </button>
+                </div>
+
+                <!-- Clans List -->
+                <div class="lg:col-span-2 glass p-8 rounded-3xl border border-ice-500/20 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl bg-ice-500/20 text-ice-400 flex items-center justify-center text-xl">
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold text-white">Active Server Clans</h3>
+                                    <p class="text-xs text-gray-400">Join, copy invites, or manage your own clan</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-ice-500/10 text-ice-300 px-3 py-1.5 rounded-full border border-ice-500/20 font-semibold">Balance: <span id="user-coins" class="text-amber-300 font-bold font-mono">1250</span> ⭐</span>
+                        </div>
+
+                        <div id="clans-list" class="space-y-3 mb-6 max-h-[260px] overflow-y-auto pr-2">
+                            <!-- Clan item 1 -->
+                            <div class="bg-darkslate-900/80 p-4 rounded-2xl border border-gray-800 flex items-center justify-between clan-row" data-clan="NorthGuard">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold">❄️</div>
+                                    <div>
+                                        <div class="font-bold text-white flex items-center gap-2">NorthGuard <span class="text-xs text-gray-400 font-normal">[Leader: FrostLord]</span></div>
+                                        <span class="text-xs text-emerald-400 font-medium">Members: 18 / 25</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="copyClanInvite('NorthGuard')" class="bg-darkslate-800 hover:bg-darkslate-700 text-gray-300 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-700 transition-all" title="Copy Invite">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                    <button onclick="joinClan('NorthGuard')" class="bg-ice-600 hover:bg-ice-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all">
+                                        Join
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Clan item 2 -->
+                            <div class="bg-darkslate-900/80 p-4 rounded-2xl border border-gray-800 flex items-center justify-between clan-row" data-clan="Blizzard">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-cyan-600/20 text-cyan-400 flex items-center justify-center font-bold">⚡</div>
+                                    <div>
+                                        <div class="font-bold text-white flex items-center gap-2">Blizzard <span class="text-xs text-gray-400 font-normal">[Leader: IceQueen]</span></div>
+                                        <span class="text-xs text-emerald-400 font-medium">Members: 22 / 25</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="copyClanInvite('Blizzard')" class="bg-darkslate-800 hover:bg-darkslate-700 text-gray-300 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-700 transition-all" title="Copy Invite">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                    <button onclick="joinClan('Blizzard')" class="bg-ice-600 hover:bg-ice-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all">
+                                        Join
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-ice-500/10 border border-ice-500/20 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-ice-300">
+                        <span>💡 Coins are earned through server playtime and daily website check-ins!</span>
+                        <button onclick="claimActivityCoins()" class="bg-amber-500 hover:bg-amber-400 text-darkslate-900 font-bold px-4 py-2 rounded-xl transition-all shadow whitespace-nowrap">
+                            Collect +150 Coins ⭐
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="rules" class="py-24 relative">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <span class="text-ice-400 font-bold uppercase tracking-widest text-xs mb-3 block">Fair Play Guidelines</span>
+                <h2 class="text-3xl sm:text-5xl font-black mb-4">FrozenSMP Rules</h2>
+                <p class="text-gray-400 text-lg">Strict adherence to these rules ensures an enjoyable environment for everyone.</p>
+            </div>
+
+            <div class="space-y-4">
+                <div class="glass rounded-2xl border border-ice-500/20 overflow-hidden transition-all">
+                    <button onclick="toggleRule(1)" class="w-full p-6 text-left flex items-center justify-between font-bold text-lg text-white hover:text-ice-400 transition-colors">
+                        <span class="flex items-center gap-3"><span class="text-ice-400 font-mono">1.1</span> Cheats, X-Ray & External Software</span>
+                        <i id="rule-icon-1" class="fa-solid fa-chevron-down transition-transform"></i>
+                    </button>
+                    <div id="rule-content-1" class="hidden px-6 pb-6 text-gray-300 text-sm leading-relaxed border-t border-gray-800 pt-4">
+                        Using any hacked clients, X-Ray texture packs, macros, auto-clickers, or unauthorized mods providing unfair advantages is strictly prohibited. Penalty: Permanent hardware ban without appeal.
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl border border-ice-500/20 overflow-hidden transition-all">
+                    <button onclick="toggleRule(2)" class="w-full p-6 text-left flex items-center justify-between font-bold text-lg text-white hover:text-ice-400 transition-colors">
+                        <span class="flex items-center gap-3"><span class="text-ice-400 font-mono">1.2</span> Griefing & Stealing</span>
+                        <i id="rule-icon-2" class="fa-solid fa-chevron-down transition-transform"></i>
+                    </button>
+                    <div id="rule-content-2" class="hidden px-6 pb-6 text-gray-300 text-sm leading-relaxed border-t border-gray-800 pt-4">
+                        Destroying protected bases outside event zones, stealing from private chests, or killing players through trap teleports (/tpa traps) is strictly forbidden.
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl border border-ice-500/20 overflow-hidden transition-all">
+                    <button onclick="toggleRule(3)" class="w-full p-6 text-left flex items-center justify-between font-bold text-lg text-white hover:text-ice-400 transition-colors">
+                        <span class="flex items-center gap-3"><span class="text-ice-400 font-mono">1.3</span> Toxicity & Harassment</span>
+                        <i id="rule-icon-3" class="fa-solid fa-chevron-down transition-transform"></i>
+                    </button>
+                    <div id="rule-content-3" class="hidden px-6 pb-6 text-gray-300 text-sm leading-relaxed border-t border-gray-800 pt-4">
+                        Respect every player. Hate speech, discrimination, real-life threats, bullying, and excessive swearing in public chat are prohibited. Penalty: Mute from 3 hours to 7 days ban.
+                    </div>
+                </div>
+
+                <div class="glass rounded-2xl border border-ice-500/20 overflow-hidden transition-all">
+                    <button onclick="toggleRule(4)" class="w-full p-6 text-left flex items-center justify-between font-bold text-lg text-white hover:text-ice-400 transition-colors">
+                        <span class="flex items-center gap-3"><span class="text-ice-400 font-mono">1.4</span> Advertising & Real-Money Trade</span>
+                        <i id="rule-icon-4" class="fa-solid fa-chevron-down transition-transform"></i>
+                    </button>
+                    <div id="rule-content-4" class="hidden px-6 pb-6 text-gray-300 text-sm leading-relaxed border-t border-gray-800 pt-4">
+                        Advertising other servers, Discord groups, or trading in-game items/accounts for real money is strictly banned. FrozenSMP is 100% free; commercial trades result in immediate permanent bans.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="maintenance" class="py-24 relative bg-darkslate-800/40 border-y border-ice-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <span class="text-ice-400 font-bold uppercase tracking-widest text-xs mb-3 block">Server Reliability</span>
+                <h2 class="text-3xl sm:text-5xl font-black mb-4">Technical Maintenance</h2>
+                <p class="text-gray-400 text-lg">Server operates <strong class="text-emerald-400">24/7</strong> with scheduled short technical breaks.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <div class="glass-card p-8 rounded-3xl text-center border-t-4 border-t-emerald-400">
+                    <div class="w-16 h-16 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl mx-auto mb-6">
+                        <i class="fa-solid fa-server"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2 text-white">Core Status</h3>
+                    <div class="inline-block bg-emerald-500/10 text-emerald-400 font-semibold px-4 py-1.5 rounded-full text-sm mb-4 border border-emerald-500/20 font-mono">
+                        🟢 Online (TPS 20.0)
+                    </div>
+                    <p class="text-gray-400 text-sm">High-performance dedicated hardware ensures zero lag and smooth gameplay.</p>
+                </div>
+
+                <div class="glass-card p-8 rounded-3xl text-center border-t-4 border-t-ice-400">
+                    <div class="w-16 h-16 rounded-2xl bg-ice-500/20 text-ice-400 flex items-center justify-center text-2xl mx-auto mb-6">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2 text-white">Daily Restarts</h3>
+                    <div class="text-ice-300 font-mono font-bold text-base mb-4">Every 24 Hours</div>
+                    <p class="text-gray-400 text-sm">Automatic daily reboot at 05:00 MSK for memory clearing and peak stability.</p>
+                </div>
+
+                <div class="glass-card p-8 rounded-3xl text-center border-t-4 border-t-cyan-400">
+                    <div class="w-16 h-16 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl mx-auto mb-6">
+                        <i class="fa-solid fa-wrench"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2 text-white">Tech Maintenance</h3>
+                    <div class="text-cyan-300 font-semibold text-sm mb-4 font-mono">Monday: 04:00 - 04:30 MSK</div>
+                    <p class="text-gray-400 text-sm">Installing updates, plugin patches, and world optimization.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="support" class="py-24 relative">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <span class="text-ice-400 font-bold uppercase tracking-widest text-xs mb-3 block">Helpdesk & Reports</span>
+                <h2 class="text-3xl sm:text-5xl font-black mb-4">Support Ticket System</h2>
+                <p class="text-gray-400 text-lg">Need help, have a bug report, or want to appeal a punishment? Submit a support ticket to our staff team.</p>
+            </div>
+
+            <div class="glass rounded-3xl border border-ice-500/30 p-8 shadow-2xl">
+                <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-800">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-ice-500/20 text-ice-400 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-headset"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Create Support Ticket</h3>
+                            <p class="text-xs text-gray-400">Our administration responds within 24 hours</p>
+                        </div>
+                    </div>
+                    <span id="ticket-author-badge" class="text-xs bg-darkslate-800 text-ice-300 px-3 py-1.5 rounded-full border border-gray-700 font-mono">User: Неизвестный игрок</span>
+                </div>
+
+                <form onsubmit="submitTicket(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Your Minecraft Nickname:</label>
+                            <input type="text" id="ticket-username" required placeholder="e.g. FrostMaster" class="w-full bg-darkslate-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-ice-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Topic / Category:</label>
+                            <select id="ticket-category" class="w-full bg-darkslate-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-ice-400">
+                                <option value="bug">Bug Report</option>
+                                <option value="ban">Ban Appeal</option>
+                                <option value="donate_issue">Technical Question</option>
+                                <option value="other">Other Inquiry</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Describe your issue:</label>
+                        <textarea id="ticket-message" rows="4" required placeholder="Provide details, coordinates, or proofs..." class="w-full bg-darkslate-900 border border-gray-700 rounded-xl p-4 text-white text-sm focus:outline-none focus:border-ice-400 resize-none"></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full bg-gradient-to-r from-ice-500 to-ice-600 hover:from-ice-400 hover:to-ice-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-ice-500/30 text-sm">
+                        Submit Ticket
+                    </button>
+                </form>
+
+                <div class="mt-8 pt-6 border-t border-gray-800">
+                    <h4 class="text-sm font-bold text-white mb-3">Your Recent Tickets</h4>
+                    <div id="tickets-list" class="space-y-2 text-xs text-gray-400">
+                        <div class="bg-darkslate-900/60 p-3 rounded-xl border border-gray-800 flex items-center justify-between">
+                            <span>#FS-1042 • Bug Report (Spawn Chest)</span>
+                            <span class="text-amber-400 font-semibold font-mono">In Progress</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="promo" class="py-24 relative bg-darkslate-800/40 border-t border-ice-950">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="glass p-10 rounded-3xl border border-ice-500/30 text-center relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-ice-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="w-16 h-16 rounded-2xl bg-ice-500/20 text-ice-400 flex items-center justify-center text-2xl mx-auto mb-6 shadow-inner">
+                    <i class="fa-solid fa-ticket"></i>
+                </div>
+                <h2 class="text-3xl font-black mb-3 text-white">Promo Code Activation</h2>
+                <p class="text-gray-400 text-sm mb-8 max-w-md mx-auto">Enter an active promo code from our Telegram or Discord to instantly receive bonus coins!</p>
+
+                <div class="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                    <input type="text" id="promo-input" placeholder="e.g. FROZEN2026" class="flex-1 bg-darkslate-900 border border-gray-700 rounded-xl px-4 py-3.5 text-white text-sm focus:outline-none focus:border-ice-400 uppercase tracking-widest font-mono">
+                    <button onclick="activatePromo()" class="bg-gradient-to-r from-ice-500 to-ice-600 hover:from-ice-400 hover:to-ice-500 text-white font-bold px-6 py-3.5 rounded-xl transition-all shadow-lg shadow-ice-500/25 text-sm">
+                        Redeem
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="glass border-t border-ice-950 py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-ice-400 to-ice-600 flex items-center justify-center">
+                    <i class="fa-solid fa-snowflake text-white text-sm"></i>
+                </div>
+                <span class="text-lg font-bold tracking-wider text-white">FROZEN<span class="text-ice-400">SMP</span></span>
+            </div>
+
+            <p class="text-xs text-gray-500">
+                © 2026 FrozenSMP. Free Minecraft Server. Not affiliated with Mojang AB.
+            </p>
+
+            <div class="flex items-center gap-6 text-gray-400">
+                <a href="https://discord.gg/ypeaBFn8tw" target="_blank" class="hover:text-ice-400 text-xl" title="Official Discord"><i class="fa-brands fa-discord"></i></a>
+                <a href="https://t.me/frozensmp" target="_blank" class="hover:text-ice-400 text-xl" title="Telegram"><i class="fa-brands fa-telegram"></i></a>
+                <a href="#rules" class="hover:text-ice-400 text-sm">Rules</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Snowfall generator
+        const snowContainer = document.getElementById('snow-container');
+        const snowflakeCount = 50;
+
+        for (let i = 0; i < snowflakeCount; i++) {
+            const snowflake = document.createElement('div');
+            snowflake.classList.add('snowflake');
+            const size = Math.random() * 5 + 2 + 'px';
+            snowflake.style.width = size;
+            snowflake.style.height = size;
+            snowflake.style.left = Math.random() * 100 + 'vw';
+            snowflake.style.animationDuration = (Math.random() * 7 + 5) + 's';
+            snowflake.style.animationDelay = (Math.random() * 5) + 's';
+            snowContainer.appendChild(snowflake);
+        }
+
+        // Database of valid registered Minecraft accounts on FrozenSMP
+        const registeredAccounts = {
+            "frostmaster": { coins: 1500, role: "VIP Player" },
+            "icequeen": { coins: 2400, role: "Moderator" },
+            "admin": { coins: 10000, role: "Server Admin" },
+            "steve": { coins: 300, role: "Newbie" }
+        };
+
+        // Current User State with fallback to "Неизвестный игрок"
+        let currentUser = JSON.parse(localStorage.getItem('frozensmp_user')) || null;
+
+        function getRecognizedUsername(inputName) {
+            if (!inputName) return "Неизвестный игрок";
+            const clean = inputName.trim().toLowerCase();
+            if (registeredAccounts[clean]) {
+                return inputName.trim();
+            }
+            return "Неизвестный игрок";
+        }
+
+        function updateAuthNav() {
+            const container = document.getElementById('auth-nav-container');
+            const ticketAuthorBadge = document.getElementById('ticket-author-badge');
+
+            if (currentUser) {
+                const displayName = getRecognizedUsername(currentUser.username);
+                const isUnknown = displayName === "Неизвестный игрок";
+                const coins = isUnknown ? 0 : (registeredAccounts[currentUser.username.toLowerCase()]?.coins || 500);
+
+                container.innerHTML = `
+                    <div class="flex items-center gap-3 bg-darkslate-800 border border-ice-500/30 px-4 py-2 rounded-xl">
+                        <div class="w-8 h-8 rounded-lg bg-ice-500/20 text-ice-300 flex items-center justify-center font-bold text-xs font-mono">
+                            ${displayName.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div class="text-left hidden sm:block">
+                            <div class="text-xs font-bold text-white">${displayName}</div>
+                            <div class="text-[10px] text-amber-300 font-mono">${coins} ⭐</div>
+                        </div>
+                        <button onclick="logoutUser()" class="text-gray-400 hover:text-rose-400 ml-2 transition-colors" title="Logout">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </div>
+                `;
+                document.getElementById('user-coins').textContent = coins;
+                document.getElementById('clan-owner').value = isUnknown ? '' : displayName;
+                document.getElementById('ticket-username').value = isUnknown ? '' : displayName;
+                if(ticketAuthorBadge) ticketAuthorBadge.textContent = `User: ${displayName}`;
+            } else {
+                container.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <button onclick="openAuthModal('login')" class="bg-darkslate-800 hover:bg-darkslate-700 text-ice-300 px-4 py-2.5 rounded-xl text-sm font-semibold border border-ice-500/30 transition-all">
+                            Login
+                        </button>
+                        <button onclick="openAuthModal('register')" class="bg-gradient-to-r from-ice-500 to-ice-600 hover:from-ice-400 hover:to-ice-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-ice-500/25 transition-all">
+                            Register
+                        </button>
+                    </div>
+                `;
+                if(ticketAuthorBadge) ticketAuthorBadge.textContent = `User: Неизвестный игрок`;
+            }
+        }
+
+        let authMode = 'login';
+
+        function openAuthModal(mode) {
+            authMode = mode;
+            const modal = document.getElementById('auth-modal');
+            const title = document.getElementById('auth-title');
+            const subtitle = document.getElementById('auth-subtitle');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const emailContainer = document.getElementById('email-field-container');
+            const toggleText = document.getElementById('auth-toggle-text');
+            const toggleBtn = document.getElementById('auth-toggle-btn');
+
+            modal.classList.remove('hidden');
+
+            if (mode === 'login') {
+                title.textContent = "Server Login";
+                subtitle.textContent = "Enter your Minecraft account credentials";
+                submitBtn.textContent = "Login to Game";
+                emailContainer.classList.add('hidden');
+                toggleText.textContent = "Don't have an account?";
+                toggleBtn.textContent = "Register";
+            } else {
+                title.textContent = "Account Registration";
+                subtitle.textContent = "Create a free account on FrozenSMP";
+                submitBtn.textContent = "Register (+300 coins)";
+                emailContainer.classList.remove('hidden');
+                toggleText.textContent = "Already have an account?";
+                toggleBtn.textContent = "Login";
+            }
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+        }
+
+        function toggleAuthMode() {
+            openAuthModal(authMode === 'login' ? 'register' : 'login');
+        }
+
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            const rawUsername = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+            const email = document.getElementById('auth-email').value.trim();
+
+            if (!rawUsername || !password) {
+                showToast("Please fill in all required fields!", "Error");
+                return;
+            }
+
+            const recognized = getRecognizedUsername(rawUsername);
+
+            if (authMode === 'register') {
+                registeredAccounts[rawUsername.toLowerCase()] = { coins: 1500, role: "Player" };
+                currentUser = { username: rawUsername };
+                localStorage.setItem('frozensmp_user', JSON.stringify(currentUser));
+                showToast(`Account ${rawUsername} registered successfully! Received +1500 coins!`, "Welcome!");
+            } else {
+                if (recognized === "Неизвестный игрок") {
+                    currentUser = { username: "Неизвестный игрок" };
+                    showToast("Account not recognized! Logged in as 'Неизвестный игрок' (Guest).", "Warning");
+                } else {
+                    currentUser = { username: rawUsername };
+                    showToast(`Welcome back, ${rawUsername}!`, "Successful Login");
+                }
+                localStorage.setItem('frozensmp_user', JSON.stringify(currentUser));
+            }
+
+            updateAuthNav();
+            closeAuthModal();
+        }
+
+        function logoutUser() {
+            currentUser = null;
+            localStorage.removeItem('frozensmp_user');
+            updateAuthNav();
+            showToast("You have logged out of your account.", "Session Closed");
+        }
+
+        // Copy IP to Clipboard
+        function copyIP() {
+            const ip = "play.frozensmp.ru";
+            const textArea = document.createElement("textarea");
+            textArea.value = ip;
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast("Server IP copied to clipboard!", "Success");
+            } catch (err) {
+                console.error('Copy failed', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Toast Notification System
+        function showToast(message, title = "Success!") {
+            const toast = document.getElementById('toast');
+            const toastTitle = document.getElementById('toast-title');
+            const toastMsg = document.getElementById('toast-message');
+            toastTitle.textContent = title;
+            toastMsg.textContent = message;
+            toast.classList.remove('translate-y-32', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-32', 'opacity-0');
+            }, 3800);
+        }
+
+        // Rules Accordion Toggle
+        function toggleRule(id) {
+            const content = document.getElementById(`rule-content-${id}`);
+            const icon = document.getElementById(`rule-icon-${id}`);
+            content.classList.toggle('hidden');
+            if(content.classList.contains('hidden')) {
+                icon.style.transform = "rotate(0deg)";
+            } else {
+                icon.style.transform = "rotate(180deg)";
+            }
+        }
+
+        // Clan creation and balance logic
+        function createClan() {
+            if (!currentUser || getRecognizedUsername(currentUser.username) === "Неизвестный игрок") {
+                openAuthModal('login');
+                showToast("Please log in with a valid account to create a clan!", "Authentication Required");
+                return;
+            }
+
+            const nameInput = document.getElementById('clan-name').value.trim();
+            const ownerInput = document.getElementById('clan-owner').value.trim();
+
+            if(!nameInput || !ownerInput) {
+                showToast("Enter clan name and your nickname!", "Error");
+                return;
+            }
+
+            let currentCoins = parseInt(document.getElementById('user-coins').textContent);
+            if(currentCoins < 800) {
+                showToast("Not enough coins! You need 800 coins to create a clan.", "Balance Error");
+                return;
+            }
+
+            currentCoins -= 800;
+            document.getElementById('user-coins').textContent = currentCoins;
+
+            const clansList = document.getElementById('clans-list');
+            const newClanHTML = `
+                <div class="bg-darkslate-900/80 p-4 rounded-2xl border border-gray-800 flex items-center justify-between clan-row" data-clan="${nameInput}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-600/20 text-amber-400 flex items-center justify-center font-bold">👑</div>
+                        <div>
+                            <div class="font-bold text-white flex items-center gap-2">${nameInput} <span class="text-xs text-gray-400 font-normal">[Leader: ${ownerInput}]</span></div>
+                            <span class="text-xs text-amber-300 font-medium">Your Clan (Members: 1 / 25)</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="copyClanInvite('${nameInput}')" class="bg-darkslate-800 hover:bg-darkslate-700 text-gray-300 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-700 transition-all" title="Copy Invite">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                        <button onclick="deleteClan(this, '${nameInput}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl border border-rose-500/30 transition-all" title="Delete Clan">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            clansList.insertAdjacentHTML('afterbegin', newClanHTML);
+            document.getElementById('clan-name').value = '';
+            showToast(`Clan "${nameInput}" successfully created for 800 coins!`, "Congratulations!");
+        }
+
+        function copyClanInvite(clanName) {
+            const inviteCode = `/clan join ${clanName.toLowerCase()}_${Math.floor(Math.random() * 8999 + 1000)}`;
+            const textArea = document.createElement("textarea");
+            textArea.value = inviteCode;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Invite code "${inviteCode}" copied to clipboard!`, "Copied");
+            } catch (err) {
+                console.error('Error', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function joinClan(clanName) {
+            showToast(`Successfully requested to join / joined clan ${clanName}!`, "Success");
+        }
+
+        function deleteClan(btn, clanName) {
+            const row = btn.closest('.clan-row');
+            if(row) {
+                row.remove();
+                let currentCoins = parseInt(document.getElementById('user-coins').textContent);
+                currentCoins += 400; // refund bonus
+                document.getElementById('user-coins').textContent = currentCoins;
+                showToast(`Clan "${clanName}" deleted. Refunded 400 coins!`, "Clan Disbanded");
+            }
+        }
+
+        function claimActivityCoins() {
+            if (!currentUser || getRecognizedUsername(currentUser.username) === "Неизвестный игрок") {
+                openAuthModal('login');
+                showToast("Log in with a recognized account to collect activity coins!", "Authentication Required");
+                return;
+            }
+            let currentCoins = parseInt(document.getElementById('user-coins').textContent);
+            currentCoins += 150;
+            document.getElementById('user-coins').textContent = currentCoins;
+            showToast("Received +150 coins for server activity!", "Reward Claimed!");
+        }
+
+        function activatePromo() {
+            if (!currentUser || getRecognizedUsername(currentUser.username) === "Неизвестный игрок") {
+                openAuthModal('login');
+                showToast("Log in to redeem promo codes!", "Authentication Required");
+                return;
+            }
+            const code = document.getElementById('promo-input').value.trim();
+            if(!code) {
+                showToast("Please enter a promo code!", "Error");
+                return;
+            }
+            let currentCoins = parseInt(document.getElementById('user-coins').textContent);
+            currentCoins += 300;
+            document.getElementById('user-coins').textContent = currentCoins;
+            showToast(`Promo code "${code}" activated! Received +300 coins.`, "Bonus Activated");
+            document.getElementById('promo-input').value = '';
+        }
+
+        // Support ticket submission
+        function submitTicket(e) {
+            e.preventDefault();
+            const username = document.getElementById('ticket-username').value.trim();
+            const category = document.getElementById('ticket-category').value;
+            const message = document.getElementById('ticket-message').value.trim();
+
+            if(!username || !message) {
+                showToast("Fill in all ticket fields!", "Error");
+                return;
+            }
+
+            const recognized = getRecognizedUsername(username);
+            if (recognized === "Неизвестный игрок") {
+                showToast("Warning: Nickname not recognized in server database. Ticket submitted as Guest.", "Notice");
+            }
+
+            const ticketsList = document.getElementById('tickets-list');
+            const ticketId = Math.floor(Math.random() * 8999 + 1000);
+            const newTicketHTML = `
+                <div class="bg-darkslate-900/60 p-3 rounded-xl border border-gray-800 flex items-center justify-between animate-in fade-in">
+                    <span>#FS-${ticketId} • ${category.toUpperCase()} (${recognized})</span>
+                    <span class="text-emerald-400 font-semibold font-mono">Submitted</span>
+                </div>
+            `;
+            ticketsList.insertAdjacentHTML('afterbegin', newTicketHTML);
+            document.getElementById('ticket-message').value = '';
+            showToast("Support ticket successfully submitted to staff!", "Ticket Created");
+        }
+
+        // Online count simulation
+        setInterval(() => {
+            const onlineElem = document.getElementById('online-count');
+            let current = parseInt(onlineElem.textContent);
+            let change = Math.floor(Math.random() * 9) - 4;
+            let newVal = Math.max(280, Math.min(450, current + change));
+            onlineElem.textContent = newVal;
+        }, 5000);
+
+        // Initialize auth UI on load
+        window.addEventListener('DOMContentLoaded', () => {
+            updateAuthNav();
+        });
+    </script>
+</body>
+</html>
